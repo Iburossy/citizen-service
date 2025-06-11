@@ -1,0 +1,116 @@
+Analyse du flux de transmission des alertes entre citoyen-service et hygiene-service
+Après avoir analysé le code de votre application "bolle v3\backend\citizen-service", je peux vous expliquer comment les alertes envoyées par les citoyens parviennent aux services externes comme le "hygiene-service".
+
+Architecture générale du système
+Le système fonctionne selon un modèle de communication inter-services où :
+
+Le citoyen-service agit comme un point d'entrée pour les citoyens qui souhaitent signaler des problèmes
+Les services spécialisés (comme hygiene-service) reçoivent et traitent ces alertes selon leur domaine d'expertise
+Flux de données détaillé
+1. Création de l'alerte par le citoyen
+Lorsqu'un citoyen crée une alerte via l'application mobile ou web :
+
+La requête est envoyée au AlertController.createAlert() qui :
+Valide les données (coordonnées, preuves, etc.)
+Traite les fichiers téléchargés (photos, vidéos) via uploadService
+Appelle alertService.createAlert() avec les données validées
+2. Traitement initial par alertService
+Dans alertService.createAlert(), le système :
+
+Vérifie si le service cible existe et est actif via AvailableService.findById()
+Crée une nouvelle alerte dans la base de données du citoyen-service
+Définit le statut initial à "pending"
+Appelle la méthode forwardAlertToService() pour transmettre l'alerte
+3. Transmission au service externe (point clé)
+La méthode forwardAlertToService() est le cœur du mécanisme de transmission :
+
+javascript
+CopyInsert
+async forwardAlertToService(alert, service) {
+  try {
+    // Préparer les données à envoyer au service
+    const alertData = {
+      alertId: alert._id,
+      category: alert.category,
+      description: alert.description,
+      location: alert.location,
+      proofs: alert.proofs,
+      isAnonymous: alert.isAnonymous,
+      citizenId: alert.citizenId,
+      createdAt: alert.createdAt
+    };
+
+    // Envoyer l'alerte au service via son API
+    const endpoint = `${service.apiUrl}/alerts`;
+    const response = await axios.post(endpoint, alertData, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Service-Key': process.env.SERVICE_API_KEY // Clé d'API pour l'authentification
+      },
+      timeout: 10000 // 10 secondes
+    });
+
+    // Mettre à jour l'alerte avec l'ID de référence du service
+    if (response.data && response.data.serviceReferenceId) {
+      alert.serviceReferenceId = response.data.serviceReferenceId;
+      await alert.save();
+    }
+
+    return response.data;
+  } catch (error) {
+    // Gestion des erreurs...
+  }
+}
+Cette méthode :
+
+Prépare un objet alertData avec les informations pertinentes
+Utilise l'URL API du service cible stockée dans service.apiUrl
+Envoie une requête POST avec axios
+Utilise une clé d'API (X-Service-Key) pour l'authentification entre services
+Enregistre l'ID de référence retourné par le service externe
+4. Configuration des services disponibles
+Le modèle AvailableService joue un rôle crucial :
+
+Il stocke les informations de connexion pour chaque service externe
+Chaque service a un apiUrl qui définit où envoyer les alertes
+Les services peuvent être activés/désactivés via isActive
+Ils peuvent définir des catégories d'alertes qu'ils prennent en charge
+Points importants à noter
+Authentification sécurisée : La communication entre services est sécurisée par une clé API (X-Service-Key)
+Persistance locale : Les alertes sont d'abord enregistrées dans la base de données du citoyen-service, ce qui garantit qu'aucune alerte n'est perdue même si le service externe est temporairement indisponible
+Référence croisée : Le système conserve une référence croisée (serviceReferenceId) qui permet de suivre l'alerte dans les deux systèmes
+Gestion des erreurs : Si la transmission échoue, l'alerte reste dans le système citoyen-service et peut être retransmise ultérieurement
+Résumé du flux
+Le citoyen soumet une alerte
+L'alerte est validée et enregistrée localement
+Le système identifie le service approprié (hygiene-service, etc.)
+L'alerte est transmise via une API REST sécurisée
+La référence externe est enregistrée pour le suivi
+Cette architecture permet une séparation claire des responsabilités tout en maintenant une communication efficace entre les différents services de la plateforme Bolle.
+
+chaque service a un endpoint pour recevoir les alertes
+ POST /api/external/alerts
+ Accès externe autorisé avec clé API valide
+
+ http://localhost:3008/api/external/alerts
+
+ {
+  "alertId": "65f1a2b3c4d5e6f7g8h9i0j6=7",
+  "category": "Accusation",
+  "description": "accuser de vole une personne justice pour monsieur x",
+  "location": {
+    "type": "Point",
+    "coordinates": [2.3322, 48.8566],
+    "address": "13 parcelle"
+  },
+  "proofs": [
+    {
+      "type": "photo",
+      "url": "http://localhost:3001/uploads/photos/1620123456789.jpg",
+      "size": 1024000
+    }
+  ],
+  "isAnonymous": false,
+  "citizenId": "683180e2ca3970213ed5cb26",
+  "createdAt": "2025-05-12T23:30:00Z"
+}
