@@ -1,0 +1,33 @@
+# Fichiers de configuration d'environnement
+# Ignorer tous les fichiers .env sauf le fichier d'exemple
+.env
+.env.*
+# !.env.example
+
+# Dépendances
+node_modules/
+
+# Fichiers de log
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Fichiers de build et de cache
+dist/
+build/
+.npm
+.cache
+
+# Fichiers de système d'exploitation
+.DS_Store
+Thumbs.db
+
+# Fichiers de test
+coverage/
+.nyc_output/
+
+# Fichiers de l'éditeur
+.vscode/
+.idea/

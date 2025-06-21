@@ -17,7 +17,9 @@ class AlertController {
     console.log('[AlertController] Request headers:', req.headers);
     
     try {
-      const { serviceId, category, description, coordinates, address, isAnonymous } = req.body;
+      // Extraction des données avec description optionnelle
+      const { serviceId, category, coordinates, address, isAnonymous } = req.body;
+      const description = req.body.description || "";
       console.log('[AlertController] Extracted data:', { serviceId, category, description, coordinates, address, isAnonymous });
       
       // Vérifier que les coordonnées sont fournies (obligatoires)
@@ -57,7 +59,7 @@ class AlertController {
       const alertData = {
         serviceId,
         category,
-        description,
+        description, // maintenant optionnel, peut être une chaîne vide
         coordinates,
         address,
         isAnonymous: isAnonymous === 'true' || isAnonymous === true,
@@ -188,6 +190,33 @@ class AlertController {
       res.status(400).json({
         success: false,
         message: error.message || 'Erreur lors de la recherche d\'alertes à proximité'
+      });
+    }
+  }
+
+  /**
+   * Récupère toutes les alertes d'hygiène pour le service d'hygiène
+   * @param {Object} req - La requête HTTP
+   * @param {Object} res - La réponse HTTP
+   */
+  async getHygieneAlertsForService(req, res) {
+    try {
+      console.log('[AlertController] getHygieneAlertsForService called');
+      
+      // Récupérer toutes les alertes de la catégorie hygiène
+      const alerts = await alertService.getAlertsByCategory('hygiene');
+      
+      console.log(`[AlertController] Found ${alerts.length} hygiene alerts`);
+      
+      res.status(200).json({
+        success: true,
+        data: alerts
+      });
+    } catch (error) {
+      console.error('[AlertController] Error getting hygiene alerts:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Erreur lors de la récupération des alertes d\'hygiène'
       });
     }
   }

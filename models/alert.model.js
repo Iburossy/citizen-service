@@ -46,7 +46,7 @@ const AlertSchema = new mongoose.Schema({
   proofs: [{
     type: {
       type: String,
-      enum: ['photo', 'video', 'audio'],
+      enum: ['photo', 'video', 'audio', 'image'],
       required: [true, 'Le type de preuve est requis']
     },
     url: {
@@ -55,6 +55,19 @@ const AlertSchema = new mongoose.Schema({
     },
     thumbnail: {
       type: String
+    },
+    // Nouveaux champs pour Cloudinary
+    cloudinary_url: {
+      type: String
+    },
+    cloudinary_public_id: {
+      type: String
+    },
+    cloudinary_thumbnail: {
+      type: String
+    },
+    size: {
+      type: Number
     },
     createdAt: {
       type: Date,

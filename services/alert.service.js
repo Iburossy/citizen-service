@@ -67,33 +67,63 @@ class AlertService {
       // Préparer les données à envoyer au service
       const alertData = {
         alertId: alert._id,
+        _id: alert._id, // L'ID mongoDB complet pour l'import
+        title: service.name || "Alerte d'hygiène",
         category: alert.category,
         description: alert.description,
         location: alert.location,
         proofs: alert.proofs,
         isAnonymous: alert.isAnonymous,
         citizenId: alert.citizenId,
-        createdAt: alert.createdAt
+        status: alert.status || 'new',
+        priority: 'medium',
+        createdAt: alert.createdAt,
+        updatedAt: new Date()
       };
 
       console.log(`[AlertService] Alert data to forward:`, JSON.stringify(alertData));
       console.log(`[AlertService] Forwarding to endpoint: ${service.apiUrl}/alerts`);
-      console.log(`[AlertService] Using API key: ${process.env.SERVICE_API_KEY}`);
-
-      // Envoyer l'alerte au service via son API
-      const endpoint = `${service.apiUrl}/alerts`;
-      const response = await axios.post(endpoint, alertData, {
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Service-Key': process.env.SERVICE_API_KEY // Clé d'API pour l'authentification entre services
-        },
-        timeout: 10000 // 10 secondes
-      });
       
-      console.log(`[AlertService] Response from service:`, response.data);
+      // 1. Envoyer l'alerte au service standard via son API
+      const endpoint = `${service.apiUrl}/alerts`;
+      let response;
+      
+      try {
+        response = await axios.post(endpoint, alertData, {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Service-Key': process.env.SERVICE_API_KEY // Clé d'API pour l'authentification
+          },
+          timeout: 10000 // 10 secondes
+        });
+        console.log(`[AlertService] Response from service:`, response.data);
+      } catch (error) {
+        console.error(`[AlertService] Error forwarding to standard endpoint: ${error.message}`);
+      }
+      
+      // 2. Pour les alertes d'hygiène, envoyer également au nouvel endpoint d'importation
+      if (service.name === 'hygiene' || service.endpoint === 'hygiene') {
+        try {
+          const importEndpoint = `${service.apiUrl}/import/alert`;
+          console.log(`[AlertService] Forwarding hygiene alert to import endpoint: ${importEndpoint}`);
+          
+          const importResponse = await axios.post(importEndpoint, alertData, {
+            headers: {
+              'Content-Type': 'application/json',
+              'X-API-Key': process.env.HYGIENE_IMPORT_API_KEY // Clé spécifique pour l'importation
+            },
+            timeout: 10000 // 10 secondes
+          });
+          
+          console.log(`[AlertService] Response from import endpoint:`, importResponse.data);
+        } catch (importError) {
+          console.error(`[AlertService] Error forwarding to import endpoint: ${importError.message}`);
+          // Ne pas arrêter le processus si l'envoi au nouvel endpoint échoue
+        }
+      }
 
-      // Mettre à jour l'alerte avec l'ID de référence du service
-      if (response.data && response.data.serviceReferenceId) {
+      // Mettre à jour l'alerte avec l'ID de référence du service (si disponible)
+      if (response && response.data && response.data.serviceReferenceId) {
         alert.serviceReferenceId = response.data.serviceReferenceId;
         await alert.save();
       }
@@ -112,6 +142,32 @@ class AlertService {
         null
       );
       
+      throw error;
+    }
+  }
+
+  /**
+   * Récupère toutes les alertes d'une catégorie spécifique
+   * @param {string} category - La catégorie des alertes à récupérer
+   * @returns {Promise<Array>} Liste des alertes
+   */
+  async getAlertsByCategory(category) {
+    try {
+      console.log(`[AlertService] Getting alerts for category: ${category}`);
+      
+      // Construire la requête de recherche
+      const query = { category };
+      
+      // Récupérer les alertes
+      const alerts = await Alert.find(query)
+        .sort({ createdAt: -1 })
+        .populate('service', 'name endpoint apiUrl');
+      
+      console.log(`[AlertService] Found ${alerts.length} alerts for category ${category}`);
+      
+      return alerts;
+    } catch (error) {
+      console.error(`[AlertService] Error getting alerts for category ${category}:`, error);
       throw error;
     }
   }

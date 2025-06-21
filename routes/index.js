@@ -4,6 +4,7 @@ const authController = require('../controllers/auth.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
 const serviceRoutes = require('./service.routes');
 const alertRoutes = require('./alert.routes');
+const externalRoutes = require('./external.routes');
 
 // Route de santé (health check)
 router.get('/health', (req, res) => {
@@ -33,5 +34,8 @@ router.use('/services', serviceRoutes);
 
 // Routes pour les alertes
 router.use('/alerts', alertRoutes);
+
+// Routes externes pour l'accès par d'autres services
+router.use('/external', externalRoutes);
 
 module.exports = router;
