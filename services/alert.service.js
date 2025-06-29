@@ -158,10 +158,12 @@ class AlertService {
       // Construire la requête de recherche
       const query = { category };
       
-      // Récupérer les alertes
+      // Récupérer les alertes avec leurs preuves
       const alerts = await Alert.find(query)
         .sort({ createdAt: -1 })
-        .populate('service', 'name endpoint apiUrl');
+        .populate('service', 'name endpoint apiUrl')
+        // Assurer que les preuves (proofs) sont incluses
+        .populate('proofs');
       
       console.log(`[AlertService] Found ${alerts.length} alerts for category ${category}`);
       
