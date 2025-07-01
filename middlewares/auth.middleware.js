@@ -31,10 +31,14 @@ class AuthMiddleware {
       
       // Vérifier le token
       const decoded = tokenService.verifyToken(token);
-      console.log('[AuthMiddleware] Token decoded successfully. User ID:', decoded.id, 'Role:', decoded.role);
+      console.log('[AuthMiddleware] Token decoded successfully. User ID:', decoded.sub, 'Role:', decoded.role);
       
       // Ajouter les informations de l'utilisateur à la requête
-      req.user = decoded;
+      req.user = {
+        id: decoded.sub, // Utiliser sub comme id pour la compatibilité
+        role: decoded.role,
+        ...decoded
+      };
       
       next();
     } catch (error) {

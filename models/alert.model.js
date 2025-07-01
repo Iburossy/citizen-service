@@ -10,6 +10,12 @@ const AlertSchema = new mongoose.Schema({
     ref: 'User',
     default: null
   },
+  // Trace qui a créé l'alerte, même si elle est anonyme (pour l'historique personnel)
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
   // Service concerné par l'alerte
   service: {
     type: mongoose.Schema.Types.ObjectId,
@@ -179,11 +185,11 @@ AlertSchema.methods.changeStatus = function(status, comment, updatedBy) {
 
 // Validation pour s'assurer qu'au moins une preuve est fournie
 // TEMPORAIREMENT DÉSACTIVÉ POUR LE DÉBOGAGE
-/*
-AlertSchema.path('proofs').validate(function(proofs) {
-  return proofs && proofs.length > 0;
-}, 'Au moins une preuve (photo, vidéo ou audio) est requise');
-*/
+
+// AlertSchema.path('proofs').validate(function(proofs) {
+//   return proofs && proofs.length > 0;
+// }, 'Au moins une preuve (photo, vidéo ou audio) est requise');
+
 
 console.log('[AlertModel] Validation des preuves temporairement désactivée pour le débogage');
 

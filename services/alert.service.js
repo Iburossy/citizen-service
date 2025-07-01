@@ -23,6 +23,8 @@ class AlertService {
       // Créer la nouvelle alerte
       const alert = new Alert({
         citizenId: alertData.isAnonymous ? null : citizenId,
+        // Stocker l'ID du créateur même pour les alertes anonymes (champ séparé)
+        createdBy: citizenId, // Nouveau champ pour tracer qui a créé l'alerte, même si anonyme
         service: service._id,
         category: alertData.category,
         description: alertData.description,
@@ -175,17 +177,62 @@ class AlertService {
   }
 
   /**
-   * Récupère les alertes d'un citoyen
+   * Récupère les alertes d'un citoyen (y compris ses alertes anonymes)
    * @param {string} citizenId - L'ID du citoyen
    * @returns {Promise<Array>} Liste des alertes du citoyen
    */
   async getAlertsByCitizen(citizenId) {
     try {
-      return await Alert.find({ citizenId })
+      console.log(`[AlertService] getAlertsByCitizen: Recherche des alertes pour le citoyen avec ID: ${citizenId}`);
+      
+      // Vérifier que l'ID est valide
+      if (!citizenId) {
+        console.error('[AlertService] getAlertsByCitizen: ID citoyen non fourni ou invalide');
+        return [];
+      }
+      
+      // Construire une requête qui récupère:
+      // 1. Les alertes où citizenId correspond à l'ID de l'utilisateur (alertes non anonymes)
+      // 2. Les alertes où createdBy correspond à l'ID de l'utilisateur (alertes anonymes créées par l'utilisateur)
+      const query = {
+        $or: [
+          { citizenId: citizenId },
+          { createdBy: citizenId }
+        ]
+      };
+      
+      console.log(`[AlertService] getAlertsByCitizen: Exécution de la requête avec $or: ${JSON.stringify(query)}`);
+      
+      // Vérifier si des alertes existent pour cet ID (sans filtre)
+      const allAlerts = await Alert.find({});
+      console.log(`[AlertService] getAlertsByCitizen: Nombre total d'alertes dans la base: ${allAlerts.length}`);
+      
+      // Afficher les IDs citoyens et createdBy de toutes les alertes pour débogage
+      const citizenIds = allAlerts.map(a => ({ citizenId: a.citizenId, createdBy: a.createdBy }));
+      console.log(`[AlertService] getAlertsByCitizen: IDs dans les alertes: ${JSON.stringify(citizenIds)}`);
+      
+      // Récupérer les alertes du citoyen avec la nouvelle requête
+      const alerts = await Alert.find(query)
         .populate('service', 'name icon color')
         .sort({ createdAt: -1 });
+      
+      console.log(`[AlertService] getAlertsByCitizen: ${alerts.length} alertes trouvées pour le citoyen ${citizenId}`);
+      
+      // Afficher les détails des alertes trouvées
+      if (alerts.length > 0) {
+        console.log(`[AlertService] getAlertsByCitizen: Détails des alertes trouvées:`);
+        alerts.forEach((alert, index) => {
+          console.log(`[AlertService] Alerte ${index + 1}: ID=${alert._id}, anonyme=${alert.isAnonymous}, citizenId=${alert.citizenId}, createdBy=${alert.createdBy}`);
+        });
+      } else {
+        console.log(`[AlertService] getAlertsByCitizen: Aucune alerte trouvée. Vérification du format de l'ID...`);
+        console.log(`[AlertService] getAlertsByCitizen: Type de citizenId: ${typeof citizenId}`);
+        console.log(`[AlertService] getAlertsByCitizen: Longueur de citizenId: ${citizenId.length}`);
+      }
+      
+      return alerts;
     } catch (error) {
-      console.error(`Erreur lors de la récupération des alertes du citoyen ${citizenId}:`, error);
+      console.error(`[AlertService] Erreur lors de la récupération des alertes du citoyen ${citizenId}:`, error);
       throw error;
     }
   }
@@ -198,19 +245,51 @@ class AlertService {
    */
   async getAlertById(alertId, citizenId = null) {
     try {
-      const query = { _id: alertId };
+      console.log(`[AlertService] getAlertById: Recherche de l'alerte ${alertId} pour l'utilisateur ${citizenId}`);
       
-      // Si un citizenId est fourni, vérifier que l'alerte appartient bien à ce citoyen
-      if (citizenId) {
-        query.citizenId = citizenId;
-      }
-      
-      const alert = await Alert.findOne(query)
+      // D'abord, récupérer l'alerte sans filtre pour vérifier ensuite les droits d'accès
+      const alert = await Alert.findById(alertId)
         .populate('service', 'name icon color endpoint apiUrl')
         .populate('citizenId', 'fullName email phone');
         
       if (!alert) {
-        throw new Error('Alerte non trouvée ou accès non autorisé');
+        console.log(`[AlertService] getAlertById: Alerte ${alertId} non trouvée`);
+        throw new Error('Alerte non trouvée');
+      }
+      
+      console.log(`[AlertService] getAlertById: Alerte trouvée - citizenId: ${alert.citizenId}, createdBy: ${alert.createdBy}, isAnonymous: ${alert.isAnonymous}`);
+      
+      // Si un citizenId est fourni, vérifier que l'utilisateur a le droit d'accéder à cette alerte
+      // Soit parce qu'il est le propriétaire (citizenId), soit parce qu'il l'a créée (createdBy)
+      if (citizenId) {
+        // Vérifier si l'alerte a un citizenId qui est un objet MongoDB ou une chaîne
+        let hasAccessByCitizenId = false;
+        if (alert.citizenId) {
+          if (typeof alert.citizenId === 'object' && alert.citizenId._id) {
+            // Si c'est un objet MongoDB populaté
+            hasAccessByCitizenId = alert.citizenId._id.toString() === citizenId.toString();
+          } else {
+            // Si c'est un ID simple
+            hasAccessByCitizenId = alert.citizenId.toString() === citizenId.toString();
+          }
+        }
+        
+        // Vérifier si l'alerte a un createdBy qui correspond à l'utilisateur
+        let hasAccessByCreatedBy = false;
+        if (alert.createdBy) {
+          hasAccessByCreatedBy = alert.createdBy.toString() === citizenId.toString();
+        }
+        
+        const hasAccess = hasAccessByCitizenId || hasAccessByCreatedBy;
+        
+        console.log(`[AlertService] getAlertById: Vérification d'accès pour l'utilisateur ${citizenId}:`);
+        console.log(`[AlertService] getAlertById: - Par citizenId: ${hasAccessByCitizenId}`);
+        console.log(`[AlertService] getAlertById: - Par createdBy: ${hasAccessByCreatedBy}`);
+        console.log(`[AlertService] getAlertById: - Accès final: ${hasAccess}`);
+        
+        if (!hasAccess) {
+          throw new Error('Accès non autorisé à cette alerte');
+        }
       }
       
       return alert;

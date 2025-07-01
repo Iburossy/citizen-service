@@ -1,0 +1,20 @@
+Maintenant que j'ai modifié le contrôleur d'alerte du service citoyen pour accepter la clé API du service d'hygiène, la synchronisation des statuts d'alertes devrait fonctionner correctement.
+
+Problème résolu
+J'ai identifié et corrigé deux problèmes qui empêchaient la synchronisation des statuts d'alertes entre le service d'hygiène et le service citoyen :
+
+Problème d'URL incorrecte : Le service d'hygiène appelait une URL incorrecte (/api/v1/alerts/webhook/status au lieu de /api/auth/alerts/webhook/status)
+Problème d'authentification : La clé API utilisée par le service d'hygiène (hygiene-service-key-2025) n'était pas acceptée par le service citoyen
+Solution mise en place
+J'ai corrigé l'URL du webhook dans le service d'hygiène pour qu'il pointe vers le bon endpoint du service citoyen
+J'ai modifié le contrôleur d'alerte du service citoyen pour accepter la clé API par défaut du service d'hygiène
+Comment tester la solution
+Redémarrez le service citoyen pour prendre en compte les modifications
+Essayez à nouveau de mettre à jour le statut d'une alerte depuis l'interface d'administration du service d'hygiène
+Vérifiez les logs du service d'hygiène et du service citoyen pour vous assurer qu'il n'y a plus d'erreur
+Vérifiez dans l'application mobile citoyenne que le statut de l'alerte est bien mis à jour
+Remarques importantes
+Cette solution est temporaire car elle accepte une clé API codée en dur. Dans un environnement de production, il serait préférable de configurer les mêmes variables d'environnement sur les deux services.
+J'ai ajouté des logs détaillés dans le contrôleur d'alerte du service citoyen pour faciliter le débogage.
+La conversion des statuts entre les deux services est maintenue (par exemple, "resolved" dans le service d'hygiène correspond à "resolved" dans le service citoyen).
+Maintenant, les mises à jour de statut devraient être correctement propagées du service d'hygiène vers le service citoyen, et les utilisateurs pourront voir l'état réel de leurs alertes dans l'application mobile.

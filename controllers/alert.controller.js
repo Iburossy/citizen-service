@@ -88,9 +88,33 @@ class AlertController {
    */
   async getMyAlerts(req, res) {
     try {
-      const citizenId = req.user.sub;
+      console.log('[AlertController] getMyAlerts: Début de la récupération des alertes');
+      console.log('[AlertController] getMyAlerts: Contenu de req.user:', JSON.stringify(req.user));
       
+      // Vérifier que l'utilisateur est bien authentifié
+      if (!req.user) {
+        console.error('[AlertController] getMyAlerts: Utilisateur non authentifié');
+        return res.status(401).json({
+          success: false,
+          message: 'Utilisateur non authentifié'
+        });
+      }
+      
+      // Vérifier que l'ID de l'utilisateur est présent
+      const citizenId = req.user.sub || req.user.id;
+      console.log(`[AlertController] getMyAlerts: ID citoyen extrait: ${citizenId}`);
+      
+      if (!citizenId) {
+        console.error('[AlertController] getMyAlerts: ID citoyen manquant dans le token');
+        return res.status(400).json({
+          success: false,
+          message: 'ID utilisateur manquant dans le token'
+        });
+      }
+      
+      console.log(`[AlertController] getMyAlerts: Appel du service avec citizenId: ${citizenId}`);
       const alerts = await alertService.getAlertsByCitizen(citizenId);
+      console.log(`[AlertController] getMyAlerts: ${alerts.length} alertes récupérées`);
       
       res.status(200).json({
         success: true,
@@ -111,10 +135,36 @@ class AlertController {
    */
   async getAlertById(req, res) {
     try {
-      const { id } = req.params;
-      const citizenId = req.user.sub;
+      console.log('[AlertController] getAlertById: Début de la récupération du détail de l\'alerte');
+      console.log('[AlertController] getAlertById: Contenu de req.user:', JSON.stringify(req.user));
       
+      const { id } = req.params;
+      console.log(`[AlertController] getAlertById: ID de l'alerte demandée: ${id}`);
+      
+      // Vérifier que l'utilisateur est bien authentifié
+      if (!req.user) {
+        console.error('[AlertController] getAlertById: Utilisateur non authentifié');
+        return res.status(401).json({
+          success: false,
+          message: 'Utilisateur non authentifié'
+        });
+      }
+      
+      // Vérifier que l'ID de l'utilisateur est présent
+      const citizenId = req.user.sub || req.user.id;
+      console.log(`[AlertController] getAlertById: ID citoyen extrait: ${citizenId}`);
+      
+      if (!citizenId) {
+        console.error('[AlertController] getAlertById: ID citoyen manquant dans le token');
+        return res.status(400).json({
+          success: false,
+          message: 'ID utilisateur manquant dans le token'
+        });
+      }
+      
+      console.log(`[AlertController] getAlertById: Appel du service avec alertId: ${id} et citizenId: ${citizenId}`);
       const alert = await alertService.getAlertById(id, citizenId);
+      console.log(`[AlertController] getAlertById: Alerte récupérée avec succès`);
       
       res.status(200).json({
         success: true,
@@ -232,12 +282,22 @@ class AlertController {
       
       // Vérifier l'authentification du service (via une clé API)
       const serviceApiKey = req.headers['x-service-key'];
-      if (!serviceApiKey || serviceApiKey !== process.env.SERVICE_API_KEY) {
+      const validKeys = [
+        process.env.SERVICE_API_KEY,
+        'hygiene-service-key-2025' // Clé par défaut du service d'hygiène
+      ];
+      
+      console.log(`[AlertController] Vérification de la clé API: ${serviceApiKey}`);
+      
+      if (!serviceApiKey || !validKeys.includes(serviceApiKey)) {
+        console.log(`[AlertController] Échec d'authentification avec la clé: ${serviceApiKey}`);
         return res.status(401).json({
           success: false,
           message: 'Authentification requise'
         });
       }
+      
+      console.log(`[AlertController] Authentification réussie pour le webhook`);
       
       if (!alertId || !status) {
         return res.status(400).json({

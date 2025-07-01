@@ -8,6 +8,10 @@ const authMiddleware = require('../middlewares/auth.middleware');
  * Routes pour la gestion des alertes
  */
 
+// Webhook pour les mises à jour de statut (appelé par les services)
+// Cette route doit être définie AVANT le middleware d'authentification pour être accessible sans token JWT
+router.post('/webhook/status', alertController.updateAlertStatus);
+
 // Routes protégées (nécessitent une authentification)
 router.use(authMiddleware.verifyToken);
 
@@ -22,8 +26,5 @@ router.post('/:id/comments', alertController.addComment);
 router.post('/upload', uploadController.uploadSingleFile);
 router.post('/uploads', uploadController.uploadMultipleFiles);
 router.delete('/upload', uploadController.deleteFile);
-
-// Webhook pour les mises à jour de statut (appelé par les services)
-router.post('/webhook/status', alertController.updateAlertStatus);
 
 module.exports = router;
