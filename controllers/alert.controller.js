@@ -272,6 +272,62 @@ class AlertController {
   }
 
   /**
+   * Webhook pour recevoir un commentaire externe (appelé par les services)
+   * @param {Object} req - La requête HTTP
+   * @param {Object} res - La réponse HTTP
+   */
+  async receiveExternalComment(req, res) {
+    try {
+      const { alertId, text, authorType, authorName } = req.body;
+      
+      // Vérifier l'authentification du service (via une clé API)
+      const serviceApiKey = req.headers['x-service-key'];
+      const validKeys = [
+        process.env.SERVICE_API_KEY,
+        'hygiene-service-key-2025', // Clé par défaut du service d'hygiène
+        'bolle-inter-service-secure-key-2025' // Clé de service inter-services
+      ];
+      
+      console.log(`[AlertController] Vérification de la clé API pour commentaire: ${serviceApiKey}`);
+      
+      if (!serviceApiKey || !validKeys.includes(serviceApiKey)) {
+        console.log(`[AlertController] Échec d'authentification avec la clé: ${serviceApiKey}`);
+        return res.status(401).json({
+          success: false,
+          message: 'Authentification requise'
+        });
+      }
+      
+      console.log(`[AlertController] Authentification réussie pour le webhook de commentaire`);
+      
+      if (!alertId || !text) {
+        return res.status(400).json({
+          success: false,
+          message: 'L\'ID de l\'alerte et le texte du commentaire sont requis'
+        });
+      }
+      
+      // Utiliser le service d'alertes pour trouver l'alerte
+      const alert = await alertService.getAlertById(alertId);
+      
+      // Ajouter le commentaire via la méthode du modèle
+      const authorDisplay = authorName || (authorType === 'agent' ? 'Agent service hygiène' : 'Service hygiène');
+      await alert.addComment(text, authorDisplay);
+      
+      res.status(200).json({
+        success: true,
+        message: 'Commentaire ajouté avec succès',
+        data: alert
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Erreur lors de l\'ajout du commentaire externe'
+      });
+    }
+  }
+
+  /**
    * Webhook pour mettre à jour le statut d'une alerte (appelé par les services)
    * @param {Object} req - La requête HTTP
    * @param {Object} res - La réponse HTTP

@@ -12,6 +12,9 @@ const authMiddleware = require('../middlewares/auth.middleware');
 // Cette route doit être définie AVANT le middleware d'authentification pour être accessible sans token JWT
 router.post('/webhook/status', alertController.updateAlertStatus);
 
+// Webhook pour les commentaires (appelé par les services)
+router.post('/webhook/comments', alertController.receiveExternalComment);
+
 // Routes protégées (nécessitent une authentification)
 router.use(authMiddleware.verifyToken);
 

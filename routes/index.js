@@ -25,6 +25,8 @@ router.post('/reset-password', authController.resetPassword);
 router.use(authMiddleware.verifyToken);
 router.get('/profile', authController.getProfile);
 router.put('/profile', authController.updateProfile);
+// Ajouter une route POST /update-profile pour compatibilité avec le frontend
+router.post('/update-profile', authController.updateProfile);
 router.post('/logout', authController.logout);
 
 // Aucune route admin ou superadmin - Service recentré sur les citoyens uniquement
